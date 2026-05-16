@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -80,8 +81,36 @@ static esp_err_t example_get_sec2_salt(const char **salt, uint16_t *salt_len)
     *salt_len = sizeof(sec2_salt);
     return ESP_OK;
 #elif CONFIG_EXAMPLE_PROV_SEC2_PROD_MODE
-    ESP_LOGE(TAG, "Not implemented!");
-    return ESP_FAIL;
+    ESP_LOGI(TAG, "Production mode: reading salt from NVS (namespace 'sec2', key 'salt')");
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("sec2", NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "NVS open failed: %s", esp_err_to_name(err));
+        return ESP_FAIL;
+    }
+    size_t required_size = 0;
+    err = nvs_get_blob(nvs_handle, "salt", NULL, &required_size);
+    if (err != ESP_OK || required_size == 0) {
+        ESP_LOGE(TAG, "Salt not found in NVS: %s", esp_err_to_name(err));
+        nvs_close(nvs_handle);
+        return ESP_FAIL;
+    }
+    char *buf = malloc(required_size);
+    if (buf == NULL) {
+        nvs_close(nvs_handle);
+        ESP_LOGE(TAG, "Out of memory reading salt");
+        return ESP_ERR_NO_MEM;
+    }
+    err = nvs_get_blob(nvs_handle, "salt", buf, &required_size);
+    nvs_close(nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read salt from NVS: %s", esp_err_to_name(err));
+        free(buf);
+        return ESP_FAIL;
+    }
+    *salt = buf;
+    *salt_len = (uint16_t)required_size;
+    return ESP_OK;
 #endif
 }
 
@@ -93,9 +122,36 @@ static esp_err_t example_get_sec2_verifier(const char **verifier, uint16_t *veri
     *verifier_len = sizeof(sec2_verifier);
     return ESP_OK;
 #elif CONFIG_EXAMPLE_PROV_SEC2_PROD_MODE
-    /* This code needs to be updated with appropriate implementation to provide verifier */
-    ESP_LOGE(TAG, "Not implemented!");
-    return ESP_FAIL;
+    ESP_LOGI(TAG, "Production mode: reading verifier from NVS (namespace 'sec2', key 'verifier')");
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("sec2", NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "NVS open failed: %s", esp_err_to_name(err));
+        return ESP_FAIL;
+    }
+    size_t required_size = 0;
+    err = nvs_get_blob(nvs_handle, "verifier", NULL, &required_size);
+    if (err != ESP_OK || required_size == 0) {
+        ESP_LOGE(TAG, "Verifier not found in NVS: %s", esp_err_to_name(err));
+        nvs_close(nvs_handle);
+        return ESP_FAIL;
+    }
+    char *buf = malloc(required_size);
+    if (buf == NULL) {
+        nvs_close(nvs_handle);
+        ESP_LOGE(TAG, "Out of memory reading verifier");
+        return ESP_ERR_NO_MEM;
+    }
+    err = nvs_get_blob(nvs_handle, "verifier", buf, &required_size);
+    nvs_close(nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read verifier from NVS: %s", esp_err_to_name(err));
+        free(buf);
+        return ESP_FAIL;
+    }
+    *verifier = buf;
+    *verifier_len = (uint16_t)required_size;
+    return ESP_OK;
 #endif
 }
 #endif
